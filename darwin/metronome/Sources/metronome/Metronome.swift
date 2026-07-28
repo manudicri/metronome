@@ -17,7 +17,15 @@ class Metronome {
     private var timer: DispatchSourceTimer?
     private let timerQueue = DispatchQueue(label: "com.metronome.beat-timer", qos: .background)
     /// Initialize the metronome with the main and accented audio files.
-    init(mainFileBytes: Data, accentedFileBytes: Data, bpm: Int, timeSignature: Int = 0, volume: Float, sampleRate: Int) {
+    init(
+        mainFileBytes: Data,
+        accentedFileBytes: Data,
+        bpm: Int,
+        timeSignature: Int = 0,
+        volume: Float,
+        sampleRate: Int,
+        manageAudioSession: Bool = true
+    ) {
         self.sampleRate = sampleRate
         audioTimeSignature = timeSignature
         audioBpm = bpm
@@ -30,17 +38,19 @@ class Metronome {
             audioFileAccented = try! AVAudioFile(fromData: accentedFileBytes)
         }
 #if os(iOS)
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(
-                .playAndRecord,
-                mode: .videoRecording,
-                options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker, .mixWithOthers]
-            )
-            
-            try audioSession.setActive(true)
-        } catch {
-            print("Failed to set audio session category: \(error)")
+        if manageAudioSession {
+            do {
+                let audioSession = AVAudioSession.sharedInstance()
+                try audioSession.setCategory(
+                    .playAndRecord,
+                    mode: .videoRecording,
+                    options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker, .mixWithOthers]
+                )
+
+                try audioSession.setActive(true)
+            } catch {
+                print("Failed to set audio session category: \(error)")
+            }
         }
 #endif
         // Initialize audio engine and player node

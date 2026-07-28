@@ -1,3 +1,8 @@
+## 2.0.13
+
+* Add the `manageAudioSession` parameter to `Metronome.init`.
+* On iOS, audio session management remains enabled by default for backward compatibility. Set `manageAudioSession` to `false` when the host application configures and activates the shared `AVAudioSession`.
+
 ## 2.0.12
 
 * Fix the source_files path configuration in darwin/metronome.podspec.
