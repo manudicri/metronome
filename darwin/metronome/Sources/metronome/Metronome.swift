@@ -16,6 +16,10 @@ class Metronome {
     private var sampleRate: Int = 44100
     private var timer: DispatchSourceTimer?
     private let timerQueue = DispatchQueue(label: "com.metronome.beat-timer", qos: .background)
+    /// Monotonic timestamp at which the currently scheduled loop starts, and its duration.
+    /// Used to line a tempo change up with the next loop boundary.
+    private var loopStartUptime: UInt64 = 0
+    private var loopDuration: TimeInterval = 0
     /// Initialize the metronome with the main and accented audio files.
     init(
         mainFileBytes: Data,
@@ -93,7 +97,46 @@ class Metronome {
                 return
             }
         }
-        audioBuffer = generateBuffer()
+        // Already running: swap the loop instead of restarting it from the downbeat.
+        if isPlaying {
+            reschedule()
+            return
+        }
+        let bufferBar = generateBuffer()
+        audioPlayerNode.scheduleBuffer(bufferBar, at: nil, options: .loops, completionHandler: nil)
+        audioPlayerNode.play()
+        audioBuffer = bufferBar
+        loopStartUptime = DispatchTime.now().uptimeNanoseconds
+        loopDuration = Double(bufferBar.frameLength) / Double(sampleRate)
+        startBeatTimer(from: loopStartUptime)
+    }
+
+    /// Swap the looping buffer at the end of the current loop iteration.
+    ///
+    /// The player node is never stopped, so the beat that is currently sounding plays
+    /// out and the new settings take over on the next loop boundary, instead of
+    /// retriggering the click and resetting the beat phase on every change.
+    private func reschedule() {
+        let previousLoopDuration = loopDuration
+        let bufferBar = generateBuffer()
+        audioPlayerNode.scheduleBuffer(bufferBar, at: nil, options: [.interruptsAtLoop, .loops], completionHandler: nil)
+        audioBuffer = bufferBar
+        // Re-anchor the beat callback on the boundary where the new loop takes over.
+        // When a swap is already pending, keep its boundary: rapid changes coalesce
+        // onto the same loop end instead of restarting the callback on every call.
+        let now = DispatchTime.now().uptimeNanoseconds
+        var boundary = loopStartUptime
+        if now >= loopStartUptime {
+            boundary = now
+            if previousLoopDuration > 0 {
+                let elapsed = Double(now - loopStartUptime) / 1_000_000_000
+                let remaining = previousLoopDuration - elapsed.truncatingRemainder(dividingBy: previousLoopDuration)
+                boundary = now + UInt64(remaining * 1_000_000_000)
+            }
+        }
+        loopStartUptime = boundary
+        loopDuration = Double(bufferBar.frameLength) / Double(sampleRate)
+        startBeatTimer(from: boundary)
     }
 
     /// Pause the metronome.
@@ -117,8 +160,7 @@ class Metronome {
         if audioBpm != bpm {
             audioBpm = bpm
             if isPlaying {
-                pause()
-                play()
+                reschedule()
             }
         }
     }
@@ -127,8 +169,7 @@ class Metronome {
         if audioTimeSignature != timeSignature {
             audioTimeSignature = timeSignature
             if isPlaying {
-                pause()
-                play()
+                reschedule()
             }
         }
     }
@@ -257,10 +298,6 @@ class Metronome {
 
             bufferBar.floatChannelData!.pointee.update(from: barArray, count: channelCount * Int(bufferBar.frameLength))
         }
-        //
-        self.audioPlayerNode.scheduleBuffer(bufferBar, at: nil, options: .loops,completionHandler: nil)
-        self.audioPlayerNode.play()
-        startBeatTimer()
         return bufferBar
     }
     
@@ -271,17 +308,22 @@ class Metronome {
         }
     }
     
-    private func startBeatTimer() {
+    /// Start the beat callback, anchored on the monotonic timestamp at which the
+    /// current loop starts. That timestamp can be in the future when a tempo change
+    /// is waiting for the next loop boundary, so the first tick is delayed to match.
+    private func startBeatTimer(from startUptime: UInt64) {
         if self.eventTick == nil {return}
         let beatDuration = 60.0 / Double(audioBpm)
-        let startUptime = DispatchTime.now().uptimeNanoseconds
         timer?.cancel()
         timer = DispatchSource.makeTimerSource(queue: timerQueue)
-        timer?.schedule(deadline: .now(), repeating: beatDuration, leeway: .milliseconds(10))
+        let now = DispatchTime.now().uptimeNanoseconds
+        let delay = startUptime > now ? Double(startUptime - now) / 1_000_000_000 : 0
+        timer?.schedule(deadline: .now() + delay, repeating: beatDuration, leeway: .milliseconds(10))
         timer?.setEventHandler { [weak self] in
             guard let self = self else { return }
             // Use a monotonic clock to decouple the beat callback from the AVAudioNode lifecycle.
-            let elapsedNanoseconds = DispatchTime.now().uptimeNanoseconds - startUptime
+            let nowUptime = DispatchTime.now().uptimeNanoseconds
+            let elapsedNanoseconds = nowUptime > startUptime ? nowUptime - startUptime : 0
             let elapsedTime = Double(elapsedNanoseconds) / 1_000_000_000
 
             let currentBeat = Int(elapsedTime / beatDuration)
