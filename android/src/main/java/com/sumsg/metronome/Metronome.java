@@ -26,6 +26,8 @@ public class Metronome {
     public volatile int audioBpm;
     public volatile int audioTimeSignature;
     public float audioVolume;
+    // Stereo pan of the click, -1 (left only) … 0 (center) … 1 (right only).
+    public float audioPan = 0f;
     private volatile boolean updated = false;
     private EventChannel.EventSink eventTickSink;
     private volatile int currentTick = 0;
@@ -118,14 +120,24 @@ public class Metronome {
         }
     }
 
-    @SuppressWarnings("deprecation")
     public void setVolume(float volume) {
         audioVolume = volume;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            audioTrack.setVolume(volume);
-        } else {
-            audioTrack.setStereoVolume(volume, volume);
-        }
+        applyVolume();
+    }
+
+    public void setPan(float pan) {
+        audioPan = Math.max(-1f, Math.min(1f, pan));
+        applyVolume();
+    }
+
+    // The track is mono, but the mixer upmixes it to stereo applying a separate
+    // gain per side, so the pan is just the per-channel volume: the side it moves
+    // away from fades out while the other stays at full volume.
+    @SuppressWarnings("deprecation")
+    private void applyVolume() {
+        float left = audioVolume * Math.min(1f, 1f - audioPan);
+        float right = audioVolume * Math.min(1f, 1f + audioPan);
+        audioTrack.setStereoVolume(left, right);
     }
 
     public boolean isPlaying() {

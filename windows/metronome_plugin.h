@@ -28,6 +28,8 @@ namespace metronome
         std::unique_ptr<Metronome> metronome;
         std::unique_ptr<flutter::EventChannel<flutter::EncodableValue>> eventChannel;
         std::shared_ptr<flutter::EventSink<flutter::EncodableValue>> eventSink;
+        // Kept on the plugin so a pan set before init (or across re-inits) still applies.
+        double pan = 0.0;
     };
 
 } // namespace metronome

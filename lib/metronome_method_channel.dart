@@ -195,6 +195,22 @@ class MethodChannelMetronome extends MetronomePlatform {
   }
 
   @override
+  Future<void> setPan(double pan) async {
+    if (pan > 1 || pan < -1) {
+      throw Exception('Pan must be between -1 and 1');
+    }
+    try {
+      await methodChannel.invokeMethod<void>('setPan', {
+        'pan': pan,
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print(e);
+      }
+    }
+  }
+
+  @override
   Future<bool?> isPlaying() async {
     try {
       return await methodChannel.invokeMethod<bool>('isPlaying');

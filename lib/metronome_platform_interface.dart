@@ -61,6 +61,10 @@ abstract class MetronomePlatform extends PlatformInterface {
     throw UnimplementedError('setVolume() has not been implemented.');
   }
 
+  Future<void> setPan(double pan) {
+    throw UnimplementedError('setPan() has not been implemented.');
+  }
+
   Future<bool?> isPlaying() {
     throw UnimplementedError('isPlaying() has not been implemented.');
   }

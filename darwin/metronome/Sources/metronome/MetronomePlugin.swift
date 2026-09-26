@@ -7,6 +7,8 @@ import FlutterMacOS
 public class MetronomePlugin: NSObject, FlutterPlugin {
     var channel:FlutterMethodChannel?
     var metronome:Metronome?
+    /// Kept on the plugin so a pan set before `init` (or across re-inits) still applies.
+    private var pan: Float = 0
     //
     private let eventTickListener: EventTickHandler = EventTickHandler()
     private var eventTick: FlutterEventChannel?
@@ -48,6 +50,10 @@ public class MetronomePlugin: NSObject, FlutterPlugin {
                 break;
               case "setVolume":
                   setVolume(attributes: attributes)
+                break;
+              case "setPan":
+                  setPan(attributes: attributes)
+                  result(nil)
                 break;
               case "isPlaying":
                   result(metronome?.isPlaying)
@@ -110,6 +116,7 @@ public class MetronomePlugin: NSObject, FlutterPlugin {
             bpm: bpm,
             timeSignature: timeSignature,
             volume: volume,
+            pan: pan,
             sampleRate: sampleRate,
             manageAudioSession: manageAudioSession
         )
@@ -125,6 +132,11 @@ public class MetronomePlugin: NSObject, FlutterPlugin {
             let accentedBytes: Data = accentedFileBytes.data
             metronome?.setAudioFile( mainFileBytes:mainBytes,accentedFileBytes: accentedBytes)
         }
+    }
+    private func setPan( attributes:NSDictionary?) {
+        let value: Double = (attributes?["pan"] as? Double) ?? 0
+        pan = Float(value)
+        metronome?.setPan(pan: pan)
     }
     private func setVolume( attributes:NSDictionary?) {
         if metronome != nil {

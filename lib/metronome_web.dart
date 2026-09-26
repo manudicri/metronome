@@ -30,6 +30,7 @@ class MetronomeWeb extends MetronomePlatform {
   int _bpm = 120;
   int _timeSignature = 4;
   double _volume = 1.0;
+  double _pan = 0.0;
   bool _enableTickCallback = false;
   int _sampleRate = 44100;
   //
@@ -101,6 +102,13 @@ class MetronomeWeb extends MetronomePlatform {
         gainNode?.gain.value = _volume;
       }
     }
+  }
+
+  @override
+  Future<void> setPan(double pan) async {
+    // Each beat gets its own panner in _scheduleBeat, so the new value is
+    // picked up from the next scheduled beat on.
+    _pan = pan.clamp(-1.0, 1.0);
   }
 
   @override
@@ -182,8 +190,11 @@ class MetronomeWeb extends MetronomePlatform {
     source.buffer = buffer;
     final gainNode = _audioContext!.createGain();
     gainNode.gain.value = _volume;
+    final pannerNode = _audioContext!.createStereoPanner();
+    pannerNode.pan.value = _pan;
     source.connect(gainNode);
-    gainNode.connect(_audioContext!.destination);
+    gainNode.connect(pannerNode);
+    pannerNode.connect(_audioContext!.destination);
     source.start(time);
     source.onEnded.listen((_) {
       if (_mainSoundBufferTemp != null) {

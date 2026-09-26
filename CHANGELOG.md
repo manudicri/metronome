@@ -1,3 +1,7 @@
+## Unreleased
+
+* Add `Metronome.setPan` to route the click across the stereo field, from `-1` (left only) through `0` (center, default) to `1` (right only). It can be called before `init`, and the value survives re-inits. Supported on iOS, macOS, Android, Windows and web.
+
 ## 2.0.13
 
 * Add the `manageAudioSession` parameter to `Metronome.init`.

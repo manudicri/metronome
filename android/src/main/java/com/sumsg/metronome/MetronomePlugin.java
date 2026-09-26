@@ -23,6 +23,8 @@ public class MetronomePlugin implements FlutterPlugin, MethodCallHandler {
   // private final String TAG = "metronome";
   /// Metronome
   private Metronome metronome = null;
+  // Kept on the plugin so a pan set before init (or across re-inits) still applies.
+  private float pan = 0f;
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
@@ -64,6 +66,10 @@ public class MetronomePlugin implements FlutterPlugin, MethodCallHandler {
         break;
       case "setVolume":
         setVolume(call);
+        break;
+      case "setPan":
+        setPan(call);
+        result.success(null);
         break;
       case "isPlaying":
         result.success(metronome.isPlaying());
@@ -122,6 +128,7 @@ public class MetronomePlugin implements FlutterPlugin, MethodCallHandler {
     int sampleRate = (sampleRateValue != null) ? sampleRateValue : 44100;
 
     metronome = new Metronome(mainFileBytes, accentedFileBytes, bpm, timeSignatureValue, volume, sampleRate);
+    metronome.setPan(pan);
 
     if (enableTickCallback && eventTickSink != null) {
       metronome.enableTickCallback(eventTickSink);
@@ -134,6 +141,16 @@ public class MetronomePlugin implements FlutterPlugin, MethodCallHandler {
       if (_volume != null) {
         float _volume1 = _volume.floatValue();
         metronome.setVolume(_volume1);
+      }
+    }
+  }
+
+  private void setPan(@NonNull MethodCall call) {
+    Double _pan = call.argument("pan");
+    if (_pan != null) {
+      pan = _pan.floatValue();
+      if (metronome != null) {
+        metronome.setPan(pan);
       }
     }
   }

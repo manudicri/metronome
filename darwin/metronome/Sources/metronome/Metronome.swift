@@ -11,6 +11,8 @@ class Metronome {
     private var audioFileAccented: AVAudioFile
     public var audioBpm: Int = 120
     public var audioVolume: Float = 0.5
+    /// Stereo pan of the click, -1 (left only) … 0 (center) … 1 (right only).
+    public var audioPan: Float = 0
     public var audioTimeSignature: Int = 0
 
     private var sampleRate: Int = 44100
@@ -27,10 +29,12 @@ class Metronome {
         bpm: Int,
         timeSignature: Int = 0,
         volume: Float,
+        pan: Float = 0,
         sampleRate: Int,
         manageAudioSession: Bool = true
     ) {
         self.sampleRate = sampleRate
+        audioPan = pan
         audioTimeSignature = timeSignature
         audioBpm = bpm
         audioVolume = volume
@@ -64,6 +68,7 @@ class Metronome {
         mixerNode.outputVolume = audioVolume
         // Connect nodes
         audioEngine.connect(audioPlayerNode, to: mixerNode, format: audioFileMain.processingFormat)
+        audioPlayerNode.pan = audioPan
         audioEngine.prepare()
         // Start the audio engine
         if !self.audioEngine.isRunning {
@@ -85,6 +90,8 @@ class Metronome {
             audioEngine.disconnectNodeOutput(audioPlayerNode)
         }
         audioEngine.connect(audioPlayerNode, to: mixerNode, format: audioFileMain.processingFormat)
+        // Mixing parameters belong to the connection, so a fresh one starts centered.
+        audioPlayerNode.pan = audioPan
     }
 
     /// Start the metronome.
@@ -205,6 +212,12 @@ class Metronome {
         mixerNode.outputVolume = volume
     }
     
+    /// Set the stereo pan: -1 left only, 0 center, 1 right only.
+    func setPan(pan: Float) {
+        audioPan = max(-1, min(1, pan))
+        audioPlayerNode.pan = audioPan
+    }
+
     var isPlaying: Bool {
         return audioPlayerNode.isPlaying
     }

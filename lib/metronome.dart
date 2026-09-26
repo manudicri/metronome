@@ -87,6 +87,13 @@ class Metronome {
     return MetronomePlatform.instance.setVolume(volume);
   }
 
+  ///set the stereo pan of the metronome, from `-1` (left only) through `0`
+  ///(center, default) to `1` (right only). Can be called before [init]: the
+  ///value is kept and applied once the metronome is initialized.
+  Future<void> setPan(double pan) async {
+    return MetronomePlatform.instance.setPan(pan);
+  }
+
   ///check if the metronome is playing
   Future<bool?> isPlaying() async {
     return MetronomePlatform.instance.isPlaying();

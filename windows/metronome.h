@@ -30,6 +30,7 @@ public:
     void SetBPM(int bpm);
     void SetTimeSignature(int timeSignature);
     void SetVolume(double volume);
+    void SetPan(double pan);
     void SetAudioFile(const std::vector<uint8_t> &mainFileBytes, const std::vector<uint8_t> &accentedSound);
     void EnableTickCallback(std::shared_ptr<flutter::EventSink<flutter::EncodableValue>> eventSink);
     bool IsPlaying() const;
@@ -43,6 +44,7 @@ private:
     void InitializeAudio();
     void OnBufferDone();
     void PlaySound();
+    void ApplyVolume();
     std::shared_ptr<flutter::EventSink<flutter::EncodableValue>> eventTickSink;
     std::vector<int16_t> Metronome::byteArrayToShortArray(const std::vector<uint8_t> &byteArray);
     std::vector<int16_t> Metronome::generateBuffer();
@@ -62,6 +64,7 @@ private:
     int sampleRate = 44100;
     int beatLength = 0;
     double audioVolume = 1.0;
+    double audioPan = 0.0;
     std::atomic<bool> playing{false};
     std::thread metronomeThread;
 };

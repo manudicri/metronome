@@ -72,6 +72,7 @@ namespace metronome
       bool enableTickCallback = std::get<bool>(arguments[flutter::EncodableValue("enableTickCallback")]);
 
       metronome = std::make_unique<Metronome>(mainFileBytes, accentedFileBytes, bpm, timeSignature, volume, sampleRate);
+      metronome->SetPan(pan);
       if (enableTickCallback && eventSink)
       {
         metronome->EnableTickCallback(eventSink);
@@ -121,6 +122,16 @@ namespace metronome
       auto arguments = std::get<flutter::EncodableMap>(*method_call.arguments());
       double volume = std::get<double>(arguments[flutter::EncodableValue("volume")]);
       metronome->SetVolume(volume);
+      result->Success(true);
+    }
+    else if (method == "setPan")
+    {
+      auto arguments = std::get<flutter::EncodableMap>(*method_call.arguments());
+      pan = std::get<double>(arguments[flutter::EncodableValue("pan")]);
+      if (metronome)
+      {
+        metronome->SetPan(pan);
+      }
       result->Success(true);
     }
     else if (method == "getVolume")
