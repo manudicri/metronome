@@ -16,16 +16,19 @@ import io.flutter.plugin.common.EventChannel;
 public class Metronome {
     private final Object mLock = new Object();
     private final AudioTrack audioTrack;
-    private short[] mainSound;
-    private short[] accentedSound;
+    private volatile short[] mainSound;
+    private volatile short[] accentedSound;
     private short[] audioBuffer;
     private final int SAMPLE_RATE;
-    public int audioBpm;
-    public int audioTimeSignature;
+    // Read by the writer thread, written by the platform thread. They must not be
+    // guarded by mLock: the writer holds it for the whole duration of a blocking
+    // write, which is a full bar, and blocking the platform thread there would ANR.
+    public volatile int audioBpm;
+    public volatile int audioTimeSignature;
     public float audioVolume;
-    private boolean updated = false;
+    private volatile boolean updated = false;
     private EventChannel.EventSink eventTickSink;
-    private int currentTick = 0;
+    private volatile int currentTick = 0;
 
     @SuppressWarnings("deprecation")
     public Metronome(byte[] mainFileBytes, byte[] accentedFileBytes, int bpm, int timeSignature, float volume,
@@ -89,20 +92,17 @@ public class Metronome {
     public void setBPM(int bpm) {
         if (bpm != audioBpm) {
             audioBpm = bpm;
-            if (isPlaying()) {
-                pause();
-                play();
-            }
+            // Let the writer thread pick the new tempo up at the next bar boundary
+            // instead of restarting the track, which would retrigger the click and
+            // reset the beat phase on every call.
+            updated = true;
         }
     }
 
     public void setTimeSignature(int timeSignature) {
         if (timeSignature != audioTimeSignature) {
             audioTimeSignature = timeSignature;
-            if (isPlaying()) {
-                pause();
-                play();
-            }
+            updated = true;
         }
     }
 
@@ -114,10 +114,7 @@ public class Metronome {
             accentedSound = byteArrayToShortArray(accentedFileBytes);
         }
         if (mainFileBytes.length > 0 || accentedFileBytes.length > 0) {
-            if (isPlaying()) {
-                pause();
-                play();
-            }
+            updated = true;
         }
     }
 
@@ -151,6 +148,11 @@ public class Metronome {
     private short[] generateBuffer() {
         currentTick = 0;
         int framesPerBeat = (int) (SAMPLE_RATE * 60 / (float) audioBpm);
+        // Re-arm the tick period here rather than in play(): this runs on the writer
+        // thread at the exact point the new tempo is swapped in.
+        if (eventTickSink != null) {
+            audioTrack.setPositionNotificationPeriod(framesPerBeat);
+        }
         short[] bufferBar;
         if (audioTimeSignature < 2) {
             bufferBar = new short[framesPerBeat];
