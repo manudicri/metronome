@@ -184,9 +184,7 @@ class Metronome {
     func setAudioFile(mainFileBytes: Data, accentedFileBytes: Data) {
         if mainFileBytes.isEmpty && accentedFileBytes.isEmpty { return }
 
-        let wasPlaying = isPlaying
-        if wasPlaying { stop() }
-
+        let previousFormat = audioFileMain.processingFormat
         if !mainFileBytes.isEmpty {
             audioFileMain = try! AVAudioFile(fromData: mainFileBytes)
         }
@@ -194,8 +192,17 @@ class Metronome {
             audioFileAccented = try! AVAudioFile(fromData: accentedFileBytes)
         }
 
-        reconnectPlayerNode()
+        // Same format: the existing connection still fits, so swap the loop at the
+        // next boundary like a tempo change does, keeping the beat phase.
+        if isPlaying && audioFileMain.processingFormat == previousFormat {
+            reschedule()
+            return
+        }
 
+        // A different format needs a new connection, which can't happen while playing.
+        let wasPlaying = isPlaying
+        if wasPlaying { stop() }
+        reconnectPlayerNode()
         if wasPlaying { play() }
     }
     
